@@ -3,53 +3,236 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Physics Buddy</title>
+<title>Soma Physics</title>
 <style>
-  :root { --bg:#f6f6f3; --card:#fff; --ink:#1d1d1b; --muted:#6b6b66; --accent:#1f6f5c;
-          --chip:#e3f1ec; --calc:#e9ecff; --calc-ink:#33409f; --warn:#9a5800; }
+  :root {
+    color-scheme: light;
+    --paper: #f3f3ec;
+    --surface: #fffefa;
+    --ink: #172e3b;
+    --muted: #62717a;
+    --line: #d9dfd9;
+    --night: #102b39;
+    --night-soft: #1a3947;
+    --teal: #1f796f;
+    --teal-dark: #145d56;
+    --copper: #e08a50;
+    --pale-teal: #e5f1ed;
+    --pale-blue: #e8eef5;
+    --warn: #9b4e26;
+    --shadow: 0 12px 34px rgba(20, 42, 50, .08);
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--ink); font-size:16px; line-height:1.45; }
-  header { position:sticky; top:0; z-index:2; background:var(--accent); color:#fff; padding:12px 16px; }
-  header h1 { margin:0; font-size:18px; }
-  header p { margin:2px 0 0; font-size:12px; opacity:.85; }
-  main { max-width:720px; margin:0 auto; padding:12px 16px 170px; }
-  .msg { margin:12px 0; }
-  .me { text-align:right; }
-  .me span { display:inline-block; background:var(--accent); color:#fff; padding:8px 12px; border-radius:14px 14px 2px 14px; max-width:85%; text-align:left; }
-  .card { background:var(--card); border-radius:12px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
-  .label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-top:12px; }
-  .label:first-child { margin-top:0; }
-  .chip { display:inline-block; background:var(--chip); color:var(--accent); font-size:12px; padding:3px 9px; border-radius:999px; margin:10px 6px 0 0; }
-  .chip.calc { background:var(--calc); color:var(--calc-ink); }
-  .warn { color:var(--warn); font-size:14px; margin-top:8px; }
-  .dots::after { content:'...'; animation: blink 1.2s infinite; }
-  @keyframes blink { 50% { opacity:.2; } }
-  button { font:inherit; border:0; border-radius:10px; padding:10px 14px; cursor:pointer; }
-  .primary { background:var(--accent); color:#fff; }
-  .ghost { background:#e8e8e2; color:var(--ink); flex:1; }
-  footer { position:fixed; bottom:0; left:0; right:0; background:var(--bg); border-top:1px solid #ddd; padding:10px 16px; }
-  .row { display:flex; gap:8px; max-width:720px; margin:0 auto; }
-  .row + .row { margin-top:8px; }
-  textarea { flex:1; font:inherit; padding:10px; border-radius:10px; border:1px solid #ccc; resize:none; height:46px; }
-  .hidden { display:none; }
-  ol, ul { padding-left:20px; margin:6px 0; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  button, textarea { font: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, textarea:focus-visible { outline: 3px solid var(--copper); outline-offset: 3px; }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 13px max(22px, calc((100vw - 920px) / 2));
+    color: #fff;
+    background: var(--night);
+    border-bottom: 1px solid rgba(255,255,255,.12);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .brand-mark { width: 36px; height: 36px; flex: none; }
+  .brand-name { margin: 0; font-size: 18px; font-weight: 760; letter-spacing: -.035em; }
+  .brand-tag { display: block; color: #b9c8c9; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .local-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #d6e7df;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #8bd0a7; box-shadow: 0 0 0 4px rgba(139,208,167,.14); }
+  main { width: min(920px, 100%); margin: 0 auto; padding: 34px 22px 210px; }
+  .welcome {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 230px;
+    align-items: center;
+    gap: 24px;
+    overflow: hidden;
+    min-height: 228px;
+    padding: 30px 34px;
+    color: #fff;
+    background: var(--night);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+  }
+  .welcome::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    content: "";
+    background: linear-gradient(90deg, var(--teal) 0 57%, var(--copper) 57% 71%, transparent 71%);
+  }
+  .eyebrow { margin: 0 0 10px; color: #a9d2c6; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  .welcome h2 { max-width: 540px; margin: 0; font: 500 clamp(28px, 4vw, 42px)/1.08 Georgia, "Times New Roman", serif; letter-spacing: -.035em; }
+  .welcome-copy { max-width: 490px; margin: 13px 0 0; color: #c6d3d5; font-size: 14px; }
+  .trajectory { width: 100%; max-width: 230px; justify-self: end; }
+  .prompt-label { margin: 27px 0 11px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+  .prompt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .prompt-card {
+    min-height: 83px;
+    padding: 14px 15px;
+    text-align: left;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+  }
+  .prompt-card:hover { transform: translateY(-2px); border-color: #91b8ab; box-shadow: 0 7px 18px rgba(20,42,50,.07); }
+  .prompt-card span { display: block; margin-bottom: 5px; color: var(--teal-dark); font-size: 10px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+  .prompt-card strong { font-size: 13px; font-weight: 620; line-height: 1.35; }
+  .msg { margin: 16px 0; }
+  .me { text-align: right; }
+  .me span { display: inline-block; max-width: 85%; padding: 10px 14px; color: #fff; text-align: left; background: var(--teal-dark); border-radius: 15px 15px 3px 15px; }
+  .card { padding: 18px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 5px 20px rgba(20,42,50,.045); }
+  .label { margin-top: 15px; color: var(--muted); font-size: 10px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; }
+  .label:first-child { margin-top: 0; }
+  .chip { display: inline-block; margin: 12px 6px 0 0; padding: 4px 10px; color: var(--teal-dark); background: var(--pale-teal); border-radius: 999px; font-size: 11px; }
+  .chip.calc { color: #334d72; background: var(--pale-blue); }
+  .warn { margin-top: 9px; color: var(--warn); font-size: 14px; }
+  .dots::after { content: "..."; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .action {
+    min-height: 42px;
+    padding: 9px 15px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 650;
+    transition: background .16s ease, transform .16s ease;
+  }
+  .action:hover { transform: translateY(-1px); }
+  .primary { color: #fff; background: var(--teal-dark); }
+  .primary:hover { background: #104c46; }
+  .ghost { color: var(--ink); background: #f1f3ef; border-color: var(--line); }
+  .ghost:hover { background: var(--pale-teal); }
+  footer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    padding: 12px 22px max(12px, env(safe-area-inset-bottom));
+    background: rgba(243,243,236,.96);
+    border-top: 1px solid var(--line);
+    backdrop-filter: blur(12px);
+  }
+  .composer { width: min(920px, 100%); margin: 0 auto; }
+  .input-row { display: flex; gap: 9px; }
+  textarea {
+    flex: 1;
+    min-width: 0;
+    min-height: 48px;
+    max-height: 130px;
+    padding: 11px 14px;
+    resize: vertical;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid #c5d0ca;
+    border-radius: 11px;
+  }
+  textarea::placeholder { color: #7a898d; }
+  .tool-row { display: flex; gap: 8px; margin-top: 8px; }
+  .tool-row .action { flex: 1; }
+  .composer-note { margin: 7px 2px 0; color: var(--muted); font-size: 10px; text-align: center; }
+  .hidden { display: none; }
+  ol, ul { padding-left: 21px; margin: 7px 0; }
+  li + li { margin-top: 5px; }
+  .has-chat .welcome, .has-chat .prompt-label, .has-chat .prompt-grid { display: none; }
+  .has-chat main { padding-top: 17px; }
+  @media (max-width: 650px) {
+    .topbar { padding: 11px 16px; }
+    main { padding: 18px 14px 207px; }
+    .welcome { grid-template-columns: minmax(0, 1fr) 112px; gap: 8px; min-height: 190px; padding: 23px 20px; border-radius: 15px; }
+    .welcome h2 { font-size: clamp(27px, 7vw, 36px); }
+    .welcome-copy { font-size: 12px; }
+    .trajectory { width: 130px; margin-right: -22px; }
+    .prompt-label { margin-top: 21px; }
+    .prompt-grid { grid-template-columns: 1fr; gap: 7px; }
+    .prompt-card { min-height: 0; padding: 11px 13px; }
+    .card { padding: 15px; }
+    footer { padding-right: 12px; padding-left: 12px; }
+    .action { padding-right: 10px; padding-left: 10px; }
+    .composer-note { font-size: 9px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>Physics Buddy</h1>
-  <p>Offline tutor for NCDC lower secondary physics. Runs on this laptop, no internet.</p>
-</header>
-<main id="log"></main>
-<footer>
-  <div class="row">
-    <textarea id="q" placeholder="Ask a physics question..."></textarea>
-    <button class="primary" id="send">Ask</button>
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 40 40" role="img" aria-label="Soma Physics mark">
+      <rect x="1" y="1" width="38" height="38" rx="12" fill="#1f796f"/>
+      <path d="M10 25.5c3.4 0 5.8 1.2 8 3.4V12.6c-2.2-2.2-4.6-3.4-8-3.4v16.3Zm20 0c-3.4 0-5.8 1.2-8 3.4V12.6c2.2-2.2 4.6-3.4 8-3.4v16.3Z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+      <circle cx="29.5" cy="10" r="3" fill="#e08a50"/>
+    </svg>
+    <div><h1 class="brand-name">Soma Physics</h1><span class="brand-tag">Uganda · lower secondary</span></div>
   </div>
-  <div class="row">
-    <button class="ghost" id="photoBtn">Photo</button>
-    <button class="ghost" id="voiceBtn">Voice</button>
-    <button class="ghost" id="activityBtn">Activity</button>
+  <div class="local-status"><span class="status-dot" aria-hidden="true"></span>Runs on this device</div>
+</header>
+<main>
+  <section class="welcome" aria-labelledby="welcome-title">
+    <div>
+      <p class="eyebrow">Physics is all around you</p>
+      <h2 id="welcome-title">Ask a question.<br>Find the physics.</h2>
+      <p class="welcome-copy">Explore Uganda’s lower-secondary Physics syllabus with hints, clear explanations and worked examples.</p>
+    </div>
+    <svg class="trajectory" viewBox="0 0 230 170" role="img" aria-label="A ball follows a curved path through a physics grid">
+      <path d="M19 143H214M30 151V18" stroke="#54717a" stroke-width="1" stroke-dasharray="3 5"/>
+      <path d="M38 130C78 19 138 22 194 113" fill="none" stroke="#8bd0ba" stroke-width="2.5" stroke-dasharray="5 5"/>
+      <path d="M38 130C78 19 138 22 194 113" fill="none" stroke="#e08a50" stroke-width="1" opacity=".45"/>
+      <circle cx="38" cy="130" r="7" fill="#e08a50" stroke="#fff2d8" stroke-width="2"/>
+      <circle cx="194" cy="113" r="5" fill="#8bd0ba"/>
+      <path d="M43 125l21-19" stroke="#fff" stroke-width="1.5"/>
+      <path d="m59 105 6-2-2 6" fill="none" stroke="#fff" stroke-width="1.5"/>
+      <text x="62" y="123" fill="#d8e6e1" font-size="11" font-family="system-ui, sans-serif">velocity</text>
+      <text x="169" y="139" fill="#d8e6e1" font-size="11" font-family="system-ui, sans-serif">distance</text>
+      <text x="9" y="25" fill="#d8e6e1" font-size="11" font-family="system-ui, sans-serif">height</text>
+      <path d="M43 134v7h7" fill="none" stroke="#fff" stroke-width="1"/>
+    </svg>
+  </section>
+  <p class="prompt-label">Start with a question</p>
+  <div class="prompt-grid" aria-label="Sample physics questions">
+    <button class="prompt-card" type="button" data-question="Why does a metal spoon get hot when it is left in hot tea?"><span>Heat · everyday science</span><strong>Why does a metal spoon get hot in tea?</strong></button>
+    <button class="prompt-card" type="button" data-question="A boda boda travels 120 metres in 8 seconds. What is its average speed? Show the formula and answer in metres per second."><span>Motion · worked example</span><strong>A boda travels 120 m in 8 s. What is its speed?</strong></button>
+    <button class="prompt-card" type="button" data-question="Why does water pressure increase as you go deeper in a lake?"><span>Pressure · explore a concept</span><strong>Why does pressure increase deeper in water?</strong></button>
+  </div>
+  <div id="log" aria-live="polite"></div>
+</main>
+<footer>
+  <div class="composer">
+    <div class="input-row">
+      <textarea id="q" aria-label="Your physics question" placeholder="Ask a physics question..."></textarea>
+      <button class="action primary" id="send" type="button">Ask</button>
+    </div>
+    <div class="tool-row">
+      <button class="action ghost" id="photoBtn" type="button">Add a photo</button>
+      <button class="action ghost" id="voiceBtn" type="button">Ask by voice</button>
+      <button class="action ghost" id="activityBtn" type="button">Make an activity</button>
+    </div>
+    <p class="composer-note">Questions stay on this device · NCDC lower-secondary Physics</p>
   </div>
   <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
   <input type="file" id="audioInput" accept="audio/*" capture class="hidden">
@@ -69,6 +252,7 @@ function el(tag, cls, text) {
 }
 function scrollDown() { window.scrollTo(0, document.body.scrollHeight); }
 function addMine(text) {
+  document.body.classList.add('has-chat');
   const m = el('div', 'msg me'); m.appendChild(el('span', null, text));
   log.appendChild(m); scrollDown();
 }
@@ -202,6 +386,13 @@ document.getElementById('activityBtn').onclick = () => {
   const topic = prompt('Which topic? For example: transfer of heat, pressure, sound');
   if (topic && topic.trim()) run('Activity: ' + topic.trim(), () => postJSON('/api/activity', { topic: topic.trim() }), renderActivity);
 };
+
+document.querySelectorAll('[data-question]').forEach(button => {
+  button.addEventListener('click', () => {
+    qBox.value = button.dataset.question;
+    qBox.focus();
+  });
+});
 </script>
 </body>
 </html>
