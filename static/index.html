@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Physics Buddy</title>
+<style>
+  :root { --bg:#f6f6f3; --card:#fff; --ink:#1d1d1b; --muted:#6b6b66; --accent:#1f6f5c;
+          --chip:#e3f1ec; --calc:#e9ecff; --calc-ink:#33409f; --warn:#9a5800; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--ink); font-size:16px; line-height:1.45; }
+  header { position:sticky; top:0; z-index:2; background:var(--accent); color:#fff; padding:12px 16px; }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:2px 0 0; font-size:12px; opacity:.85; }
+  main { max-width:720px; margin:0 auto; padding:12px 16px 170px; }
+  .msg { margin:12px 0; }
+  .me { text-align:right; }
+  .me span { display:inline-block; background:var(--accent); color:#fff; padding:8px 12px; border-radius:14px 14px 2px 14px; max-width:85%; text-align:left; }
+  .card { background:var(--card); border-radius:12px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-top:12px; }
+  .label:first-child { margin-top:0; }
+  .chip { display:inline-block; background:var(--chip); color:var(--accent); font-size:12px; padding:3px 9px; border-radius:999px; margin:10px 6px 0 0; }
+  .chip.calc { background:var(--calc); color:var(--calc-ink); }
+  .warn { color:var(--warn); font-size:14px; margin-top:8px; }
+  .dots::after { content:'...'; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity:.2; } }
+  button { font:inherit; border:0; border-radius:10px; padding:10px 14px; cursor:pointer; }
+  .primary { background:var(--accent); color:#fff; }
+  .ghost { background:#e8e8e2; color:var(--ink); flex:1; }
+  footer { position:fixed; bottom:0; left:0; right:0; background:var(--bg); border-top:1px solid #ddd; padding:10px 16px; }
+  .row { display:flex; gap:8px; max-width:720px; margin:0 auto; }
+  .row + .row { margin-top:8px; }
+  textarea { flex:1; font:inherit; padding:10px; border-radius:10px; border:1px solid #ccc; resize:none; height:46px; }
+  .hidden { display:none; }
+  ol, ul { padding-left:20px; margin:6px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Physics Buddy</h1>
+  <p>Offline tutor for NCDC lower secondary physics. Runs on this laptop, no internet.</p>
+</header>
+<main id="log"></main>
+<footer>
+  <div class="row">
+    <textarea id="q" placeholder="Ask a physics question..."></textarea>
+    <button class="primary" id="send">Ask</button>
+  </div>
+  <div class="row">
+    <button class="ghost" id="photoBtn">Photo</button>
+    <button class="ghost" id="voiceBtn">Voice</button>
+    <button class="ghost" id="activityBtn">Activity</button>
+  </div>
+  <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
+  <input type="file" id="audioInput" accept="audio/*" capture class="hidden">
+</footer>
+<script>
+const log = document.getElementById('log');
+const qBox = document.getElementById('q');
+const voiceBtn = document.getElementById('voiceBtn');
+let history = [];
+let busy = false;
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function scrollDown() { window.scrollTo(0, document.body.scrollHeight); }
+function addMine(text) {
+  const m = el('div', 'msg me'); m.appendChild(el('span', null, text));
+  log.appendChild(m); scrollDown();
+}
+function addThinking() {
+  const m = el('div', 'msg'); const c = el('div', 'card'); const t = el('span', 'dots', 'Thinking offline');
+  c.appendChild(t); m.appendChild(c); log.appendChild(m); scrollDown();
+  return m;
+}
+function addList(parent, label, items, ordered) {
+  if (!items || !items.length) return;
+  parent.appendChild(el('div', 'label', label));
+  const list = el(ordered ? 'ol' : 'ul');
+  items.forEach(i => list.appendChild(el('li', null, i)));
+  parent.appendChild(list);
+}
+
+function renderAnswer(holder, d) {
+  holder.textContent = '';
+  const c = el('div', 'card');
+  if (d.question) { c.appendChild(el('div', 'label', 'Your question')); c.appendChild(el('div', null, d.question)); }
+  if (d.in_syllabus === false) c.appendChild(el('div', 'warn', 'This looks outside the syllabus.'));
+  c.appendChild(el('div', 'label', 'Hint'));
+  c.appendChild(el('div', null, d.hint || ''));
+  const full = el('div', 'hidden');
+  full.appendChild(el('div', 'label', 'Full answer'));
+  full.appendChild(el('div', null, d.answer || ''));
+  addList(full, 'Working', d.worked_steps, true);
+  (d.calculated || []).forEach(x => full.appendChild(el('span', 'chip calc', 'Calculated: ' + x)));
+  if (d.check && d.check.ok === false) {
+    full.appendChild(el('div', 'warn', 'Self-check: ' + (d.check.problem || '') + ' ' + (d.check.corrected_answer || '')));
+  }
+  if (d.check_question) { full.appendChild(el('div', 'label', 'Test yourself')); full.appendChild(el('div', null, d.check_question)); }
+  const btn = el('button', 'ghost', 'Show full answer');
+  btn.style.marginTop = '12px';
+  btn.onclick = () => { full.classList.remove('hidden'); btn.remove(); };
+  c.appendChild(btn); c.appendChild(full);
+  if (d.citation) c.appendChild(el('span', 'chip', d.citation));
+  holder.appendChild(c); scrollDown();
+}
+
+function renderActivity(holder, d) {
+  holder.textContent = '';
+  const c = el('div', 'card');
+  c.appendChild(el('strong', null, d.title || 'Activity of integration'));
+  c.appendChild(el('div', 'label', 'Scenario')); c.appendChild(el('div', null, d.scenario || ''));
+  c.appendChild(el('div', 'label', 'Your task')); c.appendChild(el('div', null, d.task || ''));
+  addList(c, 'Materials', d.materials, false);
+  addList(c, 'Guiding steps', d.guiding_steps, true);
+  addList(c, 'A good answer shows', d.success_criteria, false);
+  if (d.citation) c.appendChild(el('span', 'chip', d.citation));
+  holder.appendChild(c); scrollDown();
+}
+
+async function postJSON(url, body) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+async function postFile(url, blob, name) {
+  const fd = new FormData(); fd.append('file', blob, name);
+  const r = await fetch(url, { method: 'POST', body: fd });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+async function run(label, task, render = renderAnswer) {
+  if (busy) return null;
+  busy = true;
+  if (label) addMine(label);
+  const holder = addThinking();
+  try { const d = await task(); render(holder, d); return d; }
+  catch (e) { holder.textContent = ''; holder.appendChild(el('div', 'card warn', 'Something went wrong: ' + e.message)); return null; }
+  finally { busy = false; }
+}
+function remember(q, d) {
+  if (!d) return;
+  history.push({ role: 'user', content: q }, { role: 'assistant', content: d.answer || '' });
+  history = history.slice(-4);
+}
+
+document.getElementById('send').onclick = async () => {
+  const q = qBox.value.trim(); if (!q) return;
+  qBox.value = '';
+  remember(q, await run(q, () => postJSON('/api/ask', { question: q, history })));
+};
+qBox.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('send').click(); }
+});
+
+async function shrink(file, max = 1280) {
+  const img = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const scale = Math.min(1, max / Math.max(img.width, img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+}
+document.getElementById('photoBtn').onclick = () => document.getElementById('photoInput').click();
+document.getElementById('photoInput').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  const small = await shrink(f);
+  const d = await run('[Photo of a question]', () => postFile('/api/ask-image', small, 'question.jpg'));
+  if (d) remember(d.question || '', d);
+};
+
+const canRecordLive = !!(window.isSecureContext && navigator.mediaDevices && window.MediaRecorder);
+let recorder = null;
+voiceBtn.onclick = async () => {
+  if (!canRecordLive) { document.getElementById('audioInput').click(); return; }
+  if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const parts = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = e => parts.push(e.data);
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    voiceBtn.textContent = 'Voice';
+    const blob = new Blob(parts, { type: recorder.mimeType || 'audio/webm' });
+    const d = await run('[Voice question]', () => postFile('/api/ask-audio', blob, 'question.webm'));
+    if (d) remember(d.question || '', d);
+  };
+  recorder.start();
+  voiceBtn.textContent = 'Stop and send';
+};
+document.getElementById('audioInput').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  const d = await run('[Voice question]', () => postFile('/api/ask-audio', f, f.name || 'question.m4a'));
+  if (d) remember(d.question || '', d);
+};
+
+document.getElementById('activityBtn').onclick = () => {
+  const topic = prompt('Which topic? For example: transfer of heat, pressure, sound');
+  if (topic && topic.trim()) run('Activity: ' + topic.trim(), () => postJSON('/api/activity', { topic: topic.trim() }), renderActivity);
+};
+</script>
+</body>
+</html>
