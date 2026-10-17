@@ -1,6 +1,6 @@
-# Offline Physics Tutor
+# Soma Physics
 
-An offline AI physics tutor for Uganda's competence-based lower secondary curriculum. It blends local retrieval over the NCDC syllabus with a local Gemma 4 model served via Ollama, and it exposes a mobile-friendly web app over a classroom hotspot.
+An offline-first AI Physics tutor for Uganda's competence-based lower-secondary curriculum. It combines local retrieval over the NCDC syllabus with Gemma 4 served by Ollama, and offers an optional hosted Gemma API mode for prototyping.
 
 ## Features
 
@@ -30,6 +30,21 @@ pip install -r requirements.txt
 ollama pull gemma4:e4b
 ollama pull embeddinggemma
 ```
+
+By default, Soma Physics answers with the local Gemma model. The model selector
+in the app can optionally switch answer generation to Gemma 4 26B A4B through
+the Gemini API. To enable that hosted option, set an API key in the environment
+before starting the app:
+
+```bash
+export GEMINI_API_KEY="your-api-key"
+```
+
+The cloud option requires internet and sends the question and any attached image
+to Google's API. Voice transcription stays local; the resulting question is sent
+to the selected answer model. Retrieval embeddings continue to use local
+`embeddinggemma`. Leave `GEMINI_API_KEY` unset to keep the selector on local-only
+mode. Never commit the API key.
 
 4. Download the NCDC syllabus PDF yourself from [ncdc.go.ug](https://ncdc.go.ug) and keep it under `data/`. The syllabus is copyrighted; do not commit its PDF or extracted text.
 

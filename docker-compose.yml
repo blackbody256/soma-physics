@@ -19,6 +19,7 @@ services:
       - "8000:8000"
     environment:
       - TUTOR_OLLAMA_URL=http://ollama:11434
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     volumes:
       - ./data:/app/data
     depends_on:

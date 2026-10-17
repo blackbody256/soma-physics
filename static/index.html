@@ -138,6 +138,10 @@
     backdrop-filter: blur(12px);
   }
   .composer { width: min(920px, 100%); margin: 0 auto; }
+  .provider-row { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
+  .provider-row label { color: var(--muted); font-size: 11px; font-weight: 700; }
+  select { min-height: 34px; padding: 5px 30px 5px 10px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
+  .cloud-note { margin: 0 0 8px; color: #77523d; font-size: 11px; }
   .input-row { display: flex; gap: 9px; }
   textarea {
     flex: 1;
@@ -174,6 +178,8 @@
     footer { padding-right: 12px; padding-left: 12px; }
     .action { padding-right: 10px; padding-left: 10px; }
     .composer-note { font-size: 9px; }
+    .provider-row { justify-content: space-between; }
+    .provider-row select { flex: 1; max-width: 245px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -190,7 +196,7 @@
     </svg>
     <div><h1 class="brand-name">Soma Physics</h1><span class="brand-tag">Uganda · lower secondary</span></div>
   </div>
-  <div class="local-status"><span class="status-dot" aria-hidden="true"></span>Runs on this device</div>
+  <div class="local-status"><span class="status-dot" aria-hidden="true"></span>Local-first · no account</div>
 </header>
 <main>
   <section class="welcome" aria-labelledby="welcome-title">
@@ -223,6 +229,14 @@
 </main>
 <footer>
   <div class="composer">
+    <div class="provider-row">
+      <label for="provider">Answer with</label>
+      <select id="provider" aria-describedby="cloud-note">
+        <option value="local">Local Gemma · offline</option>
+        <option value="gemma_api" disabled>Gemma 4 26B A4B · cloud</option>
+      </select>
+    </div>
+    <p id="cloud-note" class="cloud-note hidden">Cloud mode sends your question and any photo to Google. Voice is transcribed on this device. Internet and a server API key are required.</p>
     <div class="input-row">
       <textarea id="q" aria-label="Your physics question" placeholder="Ask a physics question..."></textarea>
       <button class="action primary" id="send" type="button">Ask</button>
@@ -232,7 +246,7 @@
       <button class="action ghost" id="voiceBtn" type="button">Ask by voice</button>
       <button class="action ghost" id="activityBtn" type="button">Make an activity</button>
     </div>
-    <p class="composer-note">Questions stay on this device · NCDC lower-secondary Physics</p>
+    <p id="privacy-note" class="composer-note">Local mode keeps questions here · NCDC lower-secondary Physics</p>
   </div>
   <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
   <input type="file" id="audioInput" accept="audio/*" capture class="hidden">
@@ -241,8 +255,38 @@
 const log = document.getElementById('log');
 const qBox = document.getElementById('q');
 const voiceBtn = document.getElementById('voiceBtn');
+const providerSelect = document.getElementById('provider');
+const cloudNote = document.getElementById('cloud-note');
+const privacyNote = document.getElementById('privacy-note');
 let history = [];
 let busy = false;
+
+function selectedProvider() { return providerSelect.value; }
+function updateProviderNote() {
+  const cloud = selectedProvider() === 'gemma_api';
+  cloudNote.classList.toggle('hidden', !cloud);
+  privacyNote.textContent = cloud
+    ? 'Cloud mode sends prompts to Google · NCDC lower-secondary Physics'
+    : 'Local mode keeps questions here · NCDC lower-secondary Physics';
+}
+providerSelect.value = localStorage.getItem('soma-provider') || 'local';
+providerSelect.addEventListener('change', () => {
+  localStorage.setItem('soma-provider', providerSelect.value);
+  updateProviderNote();
+});
+updateProviderNote();
+fetch('/api/options').then(r => r.ok ? r.json() : null).then(options => {
+  const cloud = options?.providers?.find(p => p.id === 'gemma_api');
+  const option = providerSelect.querySelector('option[value="gemma_api"]');
+  if (!cloud?.available) {
+    option.disabled = true;
+    option.textContent = 'Gemma 4 26B A4B · set server API key';
+    if (providerSelect.value === 'gemma_api') providerSelect.value = 'local';
+  } else {
+    option.disabled = false;
+  }
+  updateProviderNote();
+}).catch(() => updateProviderNote());
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -258,6 +302,7 @@ function addMine(text) {
 }
 function addThinking() {
   const m = el('div', 'msg'); const c = el('div', 'card'); const t = el('span', 'dots', 'Thinking offline');
+  t.textContent = selectedProvider() === 'gemma_api' ? 'Asking Gemma 4 online' : 'Thinking with local Gemma';
   c.appendChild(t); m.appendChild(c); log.appendChild(m); scrollDown();
   return m;
 }
@@ -313,6 +358,7 @@ async function postJSON(url, body) {
 }
 async function postFile(url, blob, name) {
   const fd = new FormData(); fd.append('file', blob, name);
+  fd.append('provider', selectedProvider());
   const r = await fetch(url, { method: 'POST', body: fd });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
@@ -335,7 +381,7 @@ function remember(q, d) {
 document.getElementById('send').onclick = async () => {
   const q = qBox.value.trim(); if (!q) return;
   qBox.value = '';
-  remember(q, await run(q, () => postJSON('/api/ask', { question: q, history })));
+  remember(q, await run(q, () => postJSON('/api/ask', { question: q, history, provider: selectedProvider() })));
 };
 qBox.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('send').click(); }
@@ -384,7 +430,7 @@ document.getElementById('audioInput').onchange = async e => {
 
 document.getElementById('activityBtn').onclick = () => {
   const topic = prompt('Which topic? For example: transfer of heat, pressure, sound');
-  if (topic && topic.trim()) run('Activity: ' + topic.trim(), () => postJSON('/api/activity', { topic: topic.trim() }), renderActivity);
+  if (topic && topic.trim()) run('Activity: ' + topic.trim(), () => postJSON('/api/activity', { topic: topic.trim(), provider: selectedProvider() }), renderActivity);
 };
 
 document.querySelectorAll('[data-question]').forEach(button => {

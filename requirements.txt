@@ -1,4 +1,5 @@
 ollama
+google-genai
 fastapi
 uvicorn[standard]
 python-multipart

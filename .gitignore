@@ -1,4 +1,7 @@
 data/
+.env
+.env.*
+!.env.example
 .venv/
 wheels/
 __pycache__/

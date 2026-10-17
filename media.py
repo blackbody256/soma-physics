@@ -5,14 +5,16 @@ import tempfile
 import ollama
 
 from config import CHAT_MODEL, KEEP_ALIVE, OLLAMA_URL, STRICT_OPTIONS
+from model_router import LOCAL, chat as route_chat
 from prompts import AUDIO_PROMPT, IMAGE_PROMPT
 
 client = ollama.Client(host=OLLAMA_URL)
 _whisper = None
 
 
-def question_from_image(image_bytes: bytes) -> str:
-    resp = client.chat(
+def question_from_image(image_bytes: bytes, provider=LOCAL) -> str:
+    resp = route_chat(
+        provider=provider,
         model=CHAT_MODEL,
         keep_alive=KEEP_ALIVE,
         options=STRICT_OPTIONS,
