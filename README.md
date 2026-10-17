@@ -6,6 +6,12 @@ Uganda's competency-based curriculum asks learners to apply what they know. Many
 
 Soma Physics is an offline-first tutor built around Uganda's lower-secondary Physics syllabus. It runs a local Gemma model through Ollama on a laptop, and learners can connect from phones over a classroom hotspot. Once it is set up, local mode works without internet. An optional Gemini API mode is available for hosted-model prototyping.
 
+## Demo
+
+[Watch the Soma Physics demo video](https://drive.google.com/file/d/1r_xGoWdyypqL1C4ZQ2dnJOlfSyZzXiot/view?usp=drivesdk)
+
+[![Soma Physics app screenshot — click to watch the demo](docs/images/soma-physics-demo.png)](https://drive.google.com/file/d/1r_xGoWdyypqL1C4ZQ2dnJOlfSyZzXiot/view?usp=drivesdk)
+
 ## Why this exists
 
 Many village schools have fewer learning resources than better-connected schools, and tools that depend on internet access may be unavailable where the gap is widest. Soma Physics puts a tutor on a laptop the school controls, so learning can continue without a reliable internet connection.
