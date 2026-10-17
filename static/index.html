@@ -67,6 +67,33 @@
     font-weight: 650;
   }
   .new-chat:hover { background: rgba(255,255,255,.1); }
+  .recording-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 9px;
+    color: var(--warn);
+    font-size: 12px;
+    font-weight: 650;
+  }
+  .recording-status[hidden] { display: none; }
+  .sound-wave { display: inline-flex; align-items: center; gap: 3px; height: 20px; }
+  .sound-wave i {
+    display: block;
+    width: 3px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--copper);
+    animation: sound-wave 700ms ease-in-out infinite alternate;
+  }
+  .sound-wave i:nth-child(2), .sound-wave i:nth-child(6) { animation-delay: 120ms; }
+  .sound-wave i:nth-child(3), .sound-wave i:nth-child(5) { animation-delay: 240ms; }
+  .sound-wave i:nth-child(4) { animation-delay: 360ms; }
+  @keyframes sound-wave { to { height: 19px; background: var(--teal); } }
+  .recording .action#voiceBtn { color: #fff; background: var(--warn); border-color: var(--warn); }
+  .recording .action#voiceBtn::before { content: '●'; margin-right: 7px; animation: record-pulse 1s ease-in-out infinite; }
+  @keyframes record-pulse { 50% { opacity: .35; } }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #8bd0a7; box-shadow: 0 0 0 4px rgba(139,208,167,.14); }
   main { width: min(920px, 100%); margin: 0 auto; padding: 34px 22px 210px; }
   .welcome {
@@ -256,6 +283,10 @@
       <button class="action ghost" id="voiceBtn" type="button">Ask by voice</button>
       <button class="action ghost" id="activityBtn" type="button">Make an activity</button>
     </div>
+    <div id="recording-status" class="recording-status" role="status" aria-live="polite" hidden>
+      <span class="sound-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span>Listening — tap Stop and send when you’re done</span>
+    </div>
     <p id="privacy-note" class="composer-note">Conversation saved on this device · NCDC lower-secondary Physics</p>
   </div>
   <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
@@ -268,6 +299,7 @@ const voiceBtn = document.getElementById('voiceBtn');
 const providerSelect = document.getElementById('provider');
 const cloudNote = document.getElementById('cloud-note');
 const privacyNote = document.getElementById('privacy-note');
+const recordingStatus = document.getElementById('recording-status');
 let history = [];
 let conversation = loadConversation();
 let busy = false;
@@ -422,12 +454,21 @@ async function postFile(url, blob, name) {
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
 }
-async function run(label, task, render = renderAnswer) {
+async function run(label, task, render = renderAnswer, useTranscript = false) {
   if (busy) return null;
   busy = true;
-  if (label) addMine(label);
+  const userMessage = label ? addMine(label) : null;
   const holder = addThinking();
-  try { const d = await task(); render(holder, d); return d; }
+  try {
+    const d = await task();
+    if (useTranscript && d?.question && userMessage) {
+      userMessage.firstChild.textContent = d.question;
+      render(holder, { ...d, question: '' });
+    } else {
+      render(holder, d);
+    }
+    return d;
+  }
   catch (e) { holder.textContent = ''; holder.appendChild(el('div', 'card warn', 'Something went wrong: ' + e.message)); return null; }
   finally { busy = false; }
 }
@@ -470,6 +511,11 @@ document.getElementById('photoInput').onchange = async e => {
 
 const canRecordLive = !!(window.isSecureContext && navigator.mediaDevices && window.MediaRecorder);
 let recorder = null;
+function setRecordingState(recording) {
+  document.body.classList.toggle('recording', recording);
+  recordingStatus.hidden = !recording;
+  voiceBtn.textContent = recording ? 'Stop and send' : 'Ask by voice';
+}
 voiceBtn.onclick = async () => {
   if (!canRecordLive) { document.getElementById('audioInput').click(); return; }
   if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
@@ -479,18 +525,18 @@ voiceBtn.onclick = async () => {
   recorder.ondataavailable = e => parts.push(e.data);
   recorder.onstop = async () => {
     stream.getTracks().forEach(t => t.stop());
-    voiceBtn.textContent = 'Voice';
+    setRecordingState(false);
     const blob = new Blob(parts, { type: recorder.mimeType || 'audio/webm' });
-    const d = await run('[Voice question]', () => postFile('/api/ask-audio', blob, 'question.webm'));
-    if (d) remember(d.question || '', d);
+    const d = await run('[Voice question]', () => postFile('/api/ask-audio', blob, 'question.webm'), renderAnswer, true);
+    if (d) remember(d.question || '', { ...d, question: '' });
   };
   recorder.start();
-  voiceBtn.textContent = 'Stop and send';
+  setRecordingState(true);
 };
 document.getElementById('audioInput').onchange = async e => {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
-  const d = await run('[Voice question]', () => postFile('/api/ask-audio', f, f.name || 'question.m4a'));
-  if (d) remember(d.question || '', d);
+  const d = await run('[Voice question]', () => postFile('/api/ask-audio', f, f.name || 'question.m4a'), renderAnswer, true);
+  if (d) remember(d.question || '', { ...d, question: '' });
 };
 
 document.getElementById('activityBtn').onclick = () => {
