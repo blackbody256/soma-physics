@@ -1,0 +1,5 @@
+[
+  {"q": "A box weighs 600 N and rests on 0.3 m2. What pressure does it exert?", "expect": ["2000", "Pa"], "topic": "Pressure"},
+  {"q": "Why does a metal spoon in hot tea get hot?", "expect": ["conduction"], "topic": "Heat"},
+  {"q": "Why are cooking pots often black underneath?", "expect": ["radiation"], "topic": "Heat"}
+]
