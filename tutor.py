@@ -117,7 +117,7 @@ def tutor_answer(question: str, history=None, provider=LOCAL) -> dict:
         {"role": m["role"], "content": str(m.get("content", ""))[:1500]}
         for m in (history or [])
         if m.get("role") in ("user", "assistant")
-    ][-4:]
+    ][-8:]
     messages = [{"role": "system", "content": SYSTEM_PROMPT}, *FEW_SHOT, *past, {"role": "user", "content": user}]
     resp = chat(provider=provider, messages=messages, format=ANSWER_SCHEMA, options=OPTIONS)
     data = parse_json(resp.message.content, {"in_syllabus": in_syllabus, "hint": "", "worked_steps": [], "citation": "", "check_question": ""})

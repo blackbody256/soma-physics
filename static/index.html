@@ -57,6 +57,16 @@
     font-size: 12px;
     white-space: nowrap;
   }
+  .new-chat {
+    padding: 7px 11px;
+    color: #eef6f2;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.28);
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 650;
+  }
+  .new-chat:hover { background: rgba(255,255,255,.1); }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #8bd0a7; box-shadow: 0 0 0 4px rgba(139,208,167,.14); }
   main { width: min(920px, 100%); margin: 0 auto; padding: 34px 22px 210px; }
   .welcome {
@@ -196,7 +206,7 @@
     </svg>
     <div><h1 class="brand-name">Soma Physics</h1><span class="brand-tag">Uganda · lower secondary</span></div>
   </div>
-  <div class="local-status"><span class="status-dot" aria-hidden="true"></span>Local-first · no account</div>
+  <div class="local-status"><span class="status-dot" aria-hidden="true"></span>Local-first · no account <button class="new-chat" id="newChat" type="button">New chat</button></div>
 </header>
 <main>
   <section class="welcome" aria-labelledby="welcome-title">
@@ -246,7 +256,7 @@
       <button class="action ghost" id="voiceBtn" type="button">Ask by voice</button>
       <button class="action ghost" id="activityBtn" type="button">Make an activity</button>
     </div>
-    <p id="privacy-note" class="composer-note">Local mode keeps questions here · NCDC lower-secondary Physics</p>
+    <p id="privacy-note" class="composer-note">Conversation saved on this device · NCDC lower-secondary Physics</p>
   </div>
   <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
   <input type="file" id="audioInput" accept="audio/*" capture class="hidden">
@@ -259,6 +269,7 @@ const providerSelect = document.getElementById('provider');
 const cloudNote = document.getElementById('cloud-note');
 const privacyNote = document.getElementById('privacy-note');
 let history = [];
+let conversation = loadConversation();
 let busy = false;
 
 function selectedProvider() { return providerSelect.value; }
@@ -266,8 +277,8 @@ function updateProviderNote() {
   const cloud = selectedProvider() === 'gemma_api';
   cloudNote.classList.toggle('hidden', !cloud);
   privacyNote.textContent = cloud
-    ? 'Cloud mode sends prompts to Google · NCDC lower-secondary Physics'
-    : 'Local mode keeps questions here · NCDC lower-secondary Physics';
+    ? 'Saved on this device · prompts sent to Google · NCDC Physics'
+    : 'Conversation saved on this device · NCDC lower-secondary Physics';
 }
 providerSelect.value = localStorage.getItem('soma-provider') || 'local';
 providerSelect.addEventListener('change', () => {
@@ -295,10 +306,11 @@ function el(tag, cls, text) {
   return e;
 }
 function scrollDown() { window.scrollTo(0, document.body.scrollHeight); }
-function addMine(text) {
+function addMine(text, shouldScroll = true) {
   document.body.classList.add('has-chat');
   const m = el('div', 'msg me'); m.appendChild(el('span', null, text));
-  log.appendChild(m); scrollDown();
+  log.appendChild(m);
+  if (shouldScroll) scrollDown();
 }
 function addThinking() {
   const m = el('div', 'msg'); const c = el('div', 'card'); const t = el('span', 'dots', 'Thinking offline');
@@ -351,6 +363,53 @@ function renderActivity(holder, d) {
   holder.appendChild(c); scrollDown();
 }
 
+function loadConversation() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('soma-conversation') || '[]');
+    if (!Array.isArray(saved)) return [];
+    return saved.filter(item => item && typeof item.prompt === 'string' && item.response && typeof item.response === 'object').slice(-8);
+  } catch (_) {
+    return [];
+  }
+}
+function responseMemoryText(item) {
+  const d = item.response || {};
+  if (item.kind === 'activity') {
+    return [d.title, d.scenario, d.task, ...(d.guiding_steps || [])].filter(Boolean).join('\n');
+  }
+  return [d.hint, d.answer, ...(d.worked_steps || []), d.check_question].filter(Boolean).join('\n');
+}
+function rebuildHistory() {
+  history = conversation.flatMap(item => [
+    { role: 'user', content: item.prompt },
+    { role: 'assistant', content: responseMemoryText(item) },
+  ]).slice(-8);
+}
+function restoreConversation() {
+  rebuildHistory();
+  if (!conversation.length) return;
+  document.body.classList.add('has-chat');
+  conversation.forEach(item => {
+    addMine(item.prompt, false);
+    const holder = el('div', 'msg');
+    log.appendChild(holder);
+    if (item.kind === 'activity') renderActivity(holder, item.response);
+    else renderAnswer(holder, item.response);
+  });
+  scrollDown();
+}
+function clearConversation() {
+  conversation = [];
+  history = [];
+  localStorage.removeItem('soma-conversation');
+  log.replaceChildren();
+  document.body.classList.remove('has-chat');
+  qBox.value = '';
+  window.scrollTo(0, 0);
+}
+document.getElementById('newChat').addEventListener('click', clearConversation);
+restoreConversation();
+
 async function postJSON(url, body) {
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
@@ -374,8 +433,14 @@ async function run(label, task, render = renderAnswer) {
 }
 function remember(q, d) {
   if (!d) return;
-  history.push({ role: 'user', content: q }, { role: 'assistant', content: d.answer || '' });
-  history = history.slice(-4);
+  conversation.push({ prompt: q, response: d, kind: d.scenario ? 'activity' : 'answer' });
+  conversation = conversation.slice(-8);
+  rebuildHistory();
+  try {
+    localStorage.setItem('soma-conversation', JSON.stringify(conversation));
+  } catch (_) {
+    // Keep the current conversation usable if browser storage is unavailable.
+  }
 }
 
 document.getElementById('send').onclick = async () => {
@@ -430,7 +495,11 @@ document.getElementById('audioInput').onchange = async e => {
 
 document.getElementById('activityBtn').onclick = () => {
   const topic = prompt('Which topic? For example: transfer of heat, pressure, sound');
-  if (topic && topic.trim()) run('Activity: ' + topic.trim(), () => postJSON('/api/activity', { topic: topic.trim(), provider: selectedProvider() }), renderActivity);
+  if (topic && topic.trim()) {
+    const promptText = 'Activity: ' + topic.trim();
+    run(promptText, () => postJSON('/api/activity', { topic: topic.trim(), provider: selectedProvider() }), renderActivity)
+      .then(data => remember(promptText, data));
+  }
 };
 
 document.querySelectorAll('[data-question]').forEach(button => {
