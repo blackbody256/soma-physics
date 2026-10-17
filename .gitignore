@@ -1,0 +1,6 @@
+data/
+.venv/
+wheels/
+__pycache__/
+*.db
+qr_*.png

@@ -1,0 +1,9 @@
+ollama
+fastapi
+uvicorn[standard]
+python-multipart
+pymupdf
+numpy
+qrcode[pil]
+# Optional offline audio transcription fallback:
+# faster-whisper
